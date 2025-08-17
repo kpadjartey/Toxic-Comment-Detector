@@ -8,4 +8,4 @@ streamlit
 gensim
 nltk
 scikit-learn
-joblib
+
