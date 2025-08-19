@@ -1,7 +1,7 @@
 altair==5.4.1
 joblib==1.4.2
 matplotlib==3.9.2
-numpy==1.26.0
-pandas==2.1.4
-gensim==4.3.2
-streamlit>=1.31.0
+numpy==1.26.4
+pandas==2.2.2
+gensim==4.3.3
+streamlit>=1.31.0  
