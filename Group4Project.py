@@ -1,10 +1,3 @@
-# Group4updated_sess.py
-# Toxic Comment Detection — stylish, interactive, leakage-free, with session_state + full evaluation
-# Python 3.9 compatible (uses typing.Optional, no union '|')
-
-# Group4updated_sess.py
-# Toxic Comment Detection — stylish, interactive, leakage-free, with session_state + full evaluation
-# Python 3.9 compatible (uses typing.Optional, no union '|')
 
 import re
 import string
@@ -41,7 +34,7 @@ except LookupError:
     nltk.download("stopwords")
     stop_words = set(stopwords.words("english"))
 
-# Optional wordcloud
+# wordcloud
 try:
     from wordcloud import WordCloud
     WORDCLOUD_AVAILABLE = True
@@ -49,9 +42,8 @@ except Exception:
     WORDCLOUD_AVAILABLE = False
 
 
-# =========================
 # Page config (+ creative menu)
-# =========================
+
 st.set_page_config(
     page_title="Toxic Comment Detection",
     page_icon="🧪",
@@ -64,18 +56,16 @@ st.set_page_config(
     },
 )
 
-# =========================
-# Constants & paths
-# =========================
+#paths
+
 LABEL_COLS = ["toxic","severe_toxic","obscene","threat","insult","identity_hate"]
 TEXT_COL = "comment_text"
 ROOT = Path(__file__).parent
 TRAIN_PATH = ROOT / "train.csv"
 TEST_PATH  = ROOT / "test.csv"
 
-# =========================
-# CSS (scoped; no global layout overrides across pages)
-# =========================
+# Page Layout
+
 st.markdown("""
 <style>
 /* Sidebar cosmetics */
@@ -170,7 +160,7 @@ def init_state():
 init_state()
 
 
-# Data loading & preprocessing
+#  Data loading & preprocessing
 
 stop_words = set(stopwords.words("english"))
 stop_words.update({'article','wikipedia','page','edit','talk','user','please','thanks','thank'})
@@ -178,23 +168,25 @@ stemmer = PorterStemmer()
 
 def clean_text_simple(text: str) -> str:
     t = str(text).lower()
-    t = re.sub(r'https?://\S+|www\.\S+','',t)
-    t = re.sub(r'<.*?>','',t)
-    t = re.sub(r'[^a-z\s]','',t)
+    t = re.sub(r'https?://\S+|www\.\S+','', t)
+    t = re.sub(r'<.*?>', '', t)
+    t = re.sub(r'[^a-z\s]', '', t)
     return t
 
 def clean_text_pipeline(text: str) -> str:
     t = str(text).lower()
-    t = re.sub(r"http\S+|www\S+|https\S+","",t)
-    t = re.sub(r"\d+","",t)
-    t = t.translate(str.maketrans("","",string.punctuation))
-    t = re.sub(r"\s+"," ",t).strip()
-    t = re.sub(r"[^a-z\s]","",t)
+    t = re.sub(r"http\S+|www\S+|https\S+", "", t)
+    t = re.sub(r"\d+", "", t)
+    t = t.translate(str.maketrans("", "", string.punctuation))
+    t = re.sub(r"\s+", " ", t).strip()
+    t = re.sub(r"[^a-z\s]", "", t)
     tokens = [w for w in t.split() if w not in stop_words and w.isalpha()]
-    out=[]
+    out = []
     for w in tokens:
-        try: out.append(stemmer.stem(w))
-        except RecursionError: continue
+        try:
+            out.append(stemmer.stem(w))
+        except RecursionError:
+            continue
     return " ".join(out)
 
 def has_all_labels(df: pd.DataFrame) -> bool:
@@ -211,9 +203,9 @@ def ensure_files():
 
 def ensure_data_in_state():
     """Load raw CSVs into session_state if missing."""
-    if st.session_state.train_df is None:
+    if "train_df" not in st.session_state or st.session_state.train_df is None:
         st.session_state.train_df = load_csv_cached(str(TRAIN_PATH))
-    if st.session_state.test_df is None:
+    if "test_df" not in st.session_state or st.session_state.test_df is None:
         st.session_state.test_df = load_csv_cached(str(TEST_PATH))
 
 def preprocess_into_state():
@@ -226,23 +218,36 @@ def preprocess_into_state():
         st.error(f"Both CSVs must include a `{TEXT_COL}` column.")
         st.stop()
 
+    # Clean the text column
     tr["cleaned_text"] = tr[TEXT_COL].astype(str).apply(clean_text_pipeline)
     te["cleaned_text"] = te[TEXT_COL].astype(str).apply(clean_text_pipeline)
 
-    tr = tr[tr["cleaned_text"].str.strip()!=""].drop_duplicates(subset="cleaned_text")
-    te = te[te["cleaned_text"].str.strip()!=""].drop_duplicates(subset="cleaned_text")
+    # Drop empties and duplicates
+    tr = tr[tr["cleaned_text"].str.strip() != ""].drop_duplicates(subset="cleaned_text")
+    te = te[te["cleaned_text"].str.strip() != ""].drop_duplicates(subset="cleaned_text")
 
+    # Extra metadata (optional but useful)
     tr["comment_length"] = tr["cleaned_text"].str.len()
     te["comment_length"] = te["cleaned_text"].str.len()
     if has_all_labels(tr):
         tr["num_labels"] = tr[LABEL_COLS].sum(axis=1)
 
+    # ✅ Save cleaned versions into session_state
     st.session_state.clean_train = tr
-    st.session_state.clean_test  = te
+    st.session_state.clean_test = te
 
-# =========================
+    # ✅  showing cleaned_text 
+    st.subheader("Sample of Cleaned Train Data")
+    st.dataframe(tr[["cleaned_text"]].sample(min(10, len(tr)), random_state=42))
+
+    st.subheader("Sample of Cleaned Test Data")
+    st.dataframe(te[["cleaned_text"]].sample(min(10, len(te)), random_state=42))
+
+
+
+
 # Embeddings & models
-# =========================
+
 def train_or_load_fasttext(sentences: List[List[str]]) -> FastText:
     model_path = ROOT / "fasttext_model.bin"
     if model_path.exists():
@@ -281,9 +286,9 @@ def train_or_load_models(X_train: np.ndarray, y_train: np.ndarray) -> Tuple[Any,
     joblib.dump(rf, str(rf_path))
     return lr, rf
 
-# =========================
+
 # Evaluation utilities (multi-label)
-# =========================
+
 def per_label_confusion(y_true_bin: np.ndarray, y_pred_bin: np.ndarray) -> np.ndarray:
     """
     Return 2x2 confusion matrix for a single label: [[TN, FP],[FN, TP]]
@@ -326,9 +331,9 @@ def compute_rocs(
         rocs[label] = {"fpr": fpr, "tpr": tpr, "auc": auc(fpr, tpr)}
     return rocs
 
-# =========================
-# Visualization helpers
-# =========================
+
+# Showing Visualizations
+
 def label_pill(name: str, on: int, prob: Optional[float]=None) -> str:
     cls = "on" if int(on)==1 else "off"
     conf = f' <span class="mono">({prob:.2f})</span>' if prob is not None else ""
@@ -452,9 +457,9 @@ def plot_roc_curves_per_label(roc_dict: Dict[str, Dict[str, np.ndarray]], model_
     diag = alt.Chart(pd.DataFrame({"x":[0,1], "y":[0,1]})).mark_line(strokeDash=[4,4]).encode(x="x", y="y")
     st.altair_chart(line + diag, use_container_width=True)
 
-# =========================
-# Sidebar menu (selectbox + status chips)
-# =========================
+
+# Sidebar menu (selectboxes)
+
 def sidebar_nav():
     st.sidebar.markdown('<div class="sb-header">🧭 Menu</div>', unsafe_allow_html=True)
     st.sidebar.markdown('<div class="sb-subtle">Jump to a section</div>', unsafe_allow_html=True)
@@ -474,7 +479,7 @@ def sidebar_nav():
         label_visibility="collapsed",
     )
 
-    # Quick artifact presence chips
+    # Quick artifacts
     data_ok = TRAIN_PATH.exists() and TEST_PATH.exists()
     ft_ok   = (ROOT / "fasttext_model.bin").exists() or (st.session_state.ft_model is not None)
     lr_ok   = (ROOT / "logistic_model.pkl").exists() or (st.session_state.lr_model is not None)
@@ -497,9 +502,9 @@ def sidebar_nav():
     st.sidebar.caption("FastText ➜ LR / RF • cached • interactive visuals")
     return page
 
-# =========================
-# Pages
-# =========================
+
+# Defining Pages
+
 def page_home():
     st.markdown('<div class="home-root">', unsafe_allow_html=True)
     st.markdown("""
@@ -666,7 +671,7 @@ def page_preprocess():
     tr = st.session_state.clean_train
     te = st.session_state.clean_test
 
-  
+
     st.success("Saved cleaned_train.csv & cleaned_test.csv")
 
 def page_modeling():
@@ -682,7 +687,7 @@ def page_modeling():
         st.error("Train lacks label columns required for evaluation.")
         return
 
-    # Prepare FastText
+    # Preparing FastText
     if st.session_state.ft_model is None:
         sentences = tr["cleaned_text"].astype(str).apply(lambda x: x.split()).tolist()
         with st.spinner("Preparing FastText model…"):
@@ -728,7 +733,7 @@ def page_modeling():
     lr_model = st.session_state.lr_model
     rf_model = st.session_state.rf_model
 
-    # Training-set predictions (NOTE: test set has no labels, so evaluation is on train)
+    # Training-set predictions ( on train)
     lr_pred_train = lr_model.predict(X_train)
     rf_pred_train = rf_model.predict(X_train)
 
@@ -744,7 +749,7 @@ def page_modeling():
     lr_proba_train = get_probs(lr_model, X_train)
     rf_proba_train = None
     try:
-        rf_proba = rf_model.predict_proba(X_train)  # for multi-output RF, this is a list of arrays
+        rf_proba = rf_model.predict_proba(X_train)  
         if isinstance(rf_proba, list):
             rf_proba_train = np.vstack([p[:, 1] if p.shape[1] > 1 else p[:, 0] for p in rf_proba]).T
         else:
@@ -768,7 +773,7 @@ def page_modeling():
     ], ignore_index=True)
     st.session_state.metrics = mdf.to_dict(orient="list")
 
-    st.markdown("#### 📈 Training Metrics Overview *(evaluated on train; test has no labels)*")
+    st.markdown("#### 📈 Training Metrics Overview *(On train)*")
     st.dataframe(
         mdf.style.format({"Macro F1": "{:.3f}","Micro F1":"{:.3f}","Weighted F1":"{:.3f}","Hamming Loss":"{:.3f}"}),
         use_container_width=True
@@ -805,7 +810,7 @@ def page_modeling():
             with cols[j]:
                 plot_conf_matrix_matrix(rf_confs[label], f"{label}")
 
-    # ROC Curves per label (if proba available)
+    # ROC Curves per label 
     st.markdown("### 📉 ROC Curves per Label (Train)")
     lr_rocs = compute_rocs(y_train, lr_proba_train, "LR")
     st.session_state.rocs["lr"] = lr_rocs
@@ -818,7 +823,7 @@ def page_modeling():
 def page_prediction():
     st.markdown("### 🔍 Prediction")
 
-    # Load from session or disk
+    # Loading from session
     ft = st.session_state.ft_model or (FastText.load(str(ROOT/"fasttext_model.bin")) if (ROOT/"fasttext_model.bin").exists() else None)
     lr_model = st.session_state.lr_model or (joblib.load(str(ROOT/"logistic_model.pkl")) if (ROOT/"logistic_model.pkl").exists() else None)
     rf_model = st.session_state.rf_model or (joblib.load(str(ROOT/"random_forest_model.pkl")) if (ROOT/"random_forest_model.pkl").exists() else None)
@@ -883,7 +888,7 @@ def page_prediction():
         preds = model.predict(X_test)
 
         out = pd.DataFrame(preds, columns=LABEL_COLS)
-        # try preserve id if present
+        # preserving ID
         base_test = st.session_state.test_df if st.session_state.test_df is not None else load_csv_cached(str(TEST_PATH))
         if "id" in base_test.columns:
             out.insert(0, "id", base_test["id"].values[:len(out)])
@@ -897,9 +902,7 @@ def page_prediction():
         st.markdown("#### Predicted label distribution")
         chart_label_distribution(out.rename(columns={"row_id":"id"}), "Predicted counts (test)")
 
-# =========================
 # Router
-# =========================
 page = sidebar_nav()
 
 if page == "Home":
@@ -913,13 +916,11 @@ elif page == "Modeling":
 elif page == "Prediction":
     page_prediction()
 
-# =========================
+#Defining Footer
 # Group 4 Footer
-# =========================
+
 st.markdown("""
 <div class="group4-footer">
   📊 <strong>Toxic Comment Detection</strong> — Built by <strong>Group 4</strong> · University of Ghana
 </div>
 """, unsafe_allow_html=True)
-
-
