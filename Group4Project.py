@@ -666,17 +666,7 @@ def page_preprocess():
     tr = st.session_state.clean_train
     te = st.session_state.clean_test
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("#### Cleaned Train (sample)")
-        cols = [TEXT_COL, "cleaned_text", "comment_length"] + (["num_labels"] if "num_labels" in tr.columns else [])
-        st.dataframe(tr[cols].head(20), use_container_width=True, height=320)
-    with c2:
-        st.markdown("#### Cleaned Test (sample)")
-        st.dataframe(te[[TEXT_COL, "cleaned_text", "comment_length"]].head(20), use_container_width=True, height=320)
-
-    tr.to_csv("cleaned_train.csv", index=False)
-    te.to_csv("cleaned_test.csv", index=False)
+  
     st.success("Saved cleaned_train.csv & cleaned_test.csv")
 
 def page_modeling():
@@ -931,4 +921,5 @@ st.markdown("""
   📊 <strong>Toxic Comment Detection</strong> — Built by <strong>Group 4</strong> · University of Ghana
 </div>
 """, unsafe_allow_html=True)
+
 
