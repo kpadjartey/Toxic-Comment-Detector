@@ -2,6 +2,10 @@
 # Toxic Comment Detection — stylish, interactive, leakage-free, with session_state + full evaluation
 # Python 3.9 compatible (uses typing.Optional, no union '|')
 
+# Group4updated_sess.py
+# Toxic Comment Detection — stylish, interactive, leakage-free, with session_state + full evaluation
+# Python 3.9 compatible (uses typing.Optional, no union '|')
+
 import re
 import string
 from collections import Counter
@@ -17,7 +21,7 @@ import seaborn as sns
 import streamlit as st
 
 from gensim.models import FastText
-from nltk.corpus import stopwords
+import nltk
 from nltk.stem import PorterStemmer
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -29,12 +33,21 @@ from sklearn.metrics import (
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 
+# Ensure NLTK stopwords are available
+from nltk.corpus import stopwords
+try:
+    stop_words = set(stopwords.words("english"))
+except LookupError:
+    nltk.download("stopwords")
+    stop_words = set(stopwords.words("english"))
+
 # Optional wordcloud
 try:
     from wordcloud import WordCloud
     WORDCLOUD_AVAILABLE = True
 except Exception:
     WORDCLOUD_AVAILABLE = False
+
 
 # =========================
 # Page config (+ creative menu)
@@ -918,3 +931,4 @@ st.markdown("""
   📊 <strong>Toxic Comment Detection</strong> — Built by <strong>Group 4</strong> · University of Ghana
 </div>
 """, unsafe_allow_html=True)
+
